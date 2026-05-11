@@ -1,7 +1,29 @@
 package main
 
-import "fmt"
+import (
+	"bufio"
+	"fmt"
+	"os"
+)
+
 
 func main() {
-	fmt.Println("Shell started")
+	
+	reader := bufio.NewReader(os.Stdin)
+
+	for{
+		fmt.Print("$ ")
+
+		_,err := reader.ReadString('\n')
+
+		if err != nil{
+			fmt.Print("Error input ",err)
+		}
+
+	}
+
+
+
+
+
 }
