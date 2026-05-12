@@ -16,6 +16,15 @@ func main() {
 		"echo": func(args []string) {
 			fmt.Println(strings.Join(args, " "))
 		},
+		"pwd":func(args []string) {
+			dir,err := os.Getwd()
+			if err != nil{
+				fmt.Println("Error getting current directory")
+				return
+			}
+			fmt.Println(dir)
+
+		},
 		"exit": func(args []string) {
 			os.Exit(0)
 		},
