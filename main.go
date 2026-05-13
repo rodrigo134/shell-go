@@ -17,6 +17,29 @@ func main() {
 		"echo": func(args []string) {
 			fmt.Println(strings.Join(args, " "))
 		},
+		"cd": func(args []string) {
+			if len(args) == 0 {
+				fmt.Println("Usage: cd [Directory]")
+				return
+			}
+			path := args[0]
+			if path == "~" {
+				home, err := os.UserHomeDir()
+				if err != nil {
+					fmt.Println("error home directory")
+					return
+				}
+				path = home
+				
+
+				}
+				err := os.Chdir(path)
+				if err != nil {
+					fmt.Printf("cd: %s: No such file or directory\n", args[0])
+			}
+		
+		},
+
 		"pwd": func(args []string) {
 			dir, err := os.Getwd()
 			if err != nil {
@@ -42,6 +65,11 @@ func main() {
 			}
 
 		},
+		"clear": func(args []string) {
+			cmd :=exec.Command("clear")
+			cmd.Stdout = os.Stdout
+			cmd.Run()
+		},
 	}
 
 	for {
@@ -66,17 +94,22 @@ func main() {
 		if fn, ok := builtins[commands]; ok {
 			fn(args)
 		} else {
-			path, err := exec.LookPath(commands) //path = /usr/bin/ls
+			_, err := exec.LookPath(commands) //path = /usr/bin/ls
 			if err != nil {
 				fmt.Println(commands + ": not found")
 				continue
 
+			} else {
+				externalCmd := exec.Command(commands, args...) ///usr/bin/ls -la
+				externalCmd.Stdin = os.Stdin
+				externalCmd.Stdout = os.Stdout
+				externalCmd.Stderr = os.Stderr
+				externalCmd.Run()
+				if err != nil {
+					fmt.Println("Error executing", externalCmd.Args[0]+":", err)
+				}
+
 			}
-			cmd := exec.Command(path, args...) ///usr/bin/ls -la
-			cmd.Stdin = os.Stdin
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			cmd.Run()
 
 		}
 	}
