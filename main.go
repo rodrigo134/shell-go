@@ -91,7 +91,7 @@ func main() {
 			continue
 		}
 
-		parts := parseInput(prompt)
+		parts := parseCommand(prompt)
 		commands := parts[0]
 		args := parts[1:]
 
@@ -118,20 +118,58 @@ func main() {
 	}
 }
 
-func parseInput(prompt string) []string {
-	isQuote := false
-	current := ""
+func parseCommand(input string) []string {
+	inQuotes := false
+	var quoteChar byte
+
 	commandFinal := []string{}
+	current := ""
 
-	for i := 0; i < len(prompt); i++ {
-		ch := prompt[i]
+	for i := 0; i < len(input); i++ {
+		ch := input[i]
 
-		if ch == '\'' {
-			isQuote = !isQuote
+		if ch == '\\' && !inQuotes {
+			if i+1 < len(input) {
+				current += string(input[i+1])
+				i++
+			} else {
+				current += string(ch)
+			}
+			continue
+		}
+		if ch == '\\' && inQuotes && quoteChar == '"' {
+			if i+1 < len(input) {
+				next := input[i+1]
+
+				if next == '"' || next == '\\' {
+					current += string(next)
+					i++
+					continue
+				}
+			}
+
+			current += string(ch)
 			continue
 		}
 
-		if ch == ' ' && !isQuote {
+		if ch == '"' || ch == '\'' {
+			if !inQuotes {
+				inQuotes = true
+				quoteChar = ch
+				continue
+			}
+
+			if ch == quoteChar {
+				inQuotes = false
+				quoteChar = 0
+				continue
+			}
+
+			current += string(ch)
+			continue
+		}
+
+		if ch == ' ' && !inQuotes {
 			if current != "" {
 				commandFinal = append(commandFinal, current)
 				current = ""
@@ -140,12 +178,11 @@ func parseInput(prompt string) []string {
 		}
 
 		current += string(ch)
-
 	}
+
 	if current != "" {
 		commandFinal = append(commandFinal, current)
 	}
 
 	return commandFinal
-
 }
