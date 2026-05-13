@@ -30,14 +30,13 @@ func main() {
 					return
 				}
 				path = home
-				
 
-				}
-				err := os.Chdir(path)
-				if err != nil {
-					fmt.Printf("cd: %s: No such file or directory\n", args[0])
 			}
-		
+			err := os.Chdir(path)
+			if err != nil {
+				fmt.Printf("cd: %s: No such file or directory\n", args[0])
+			}
+
 		},
 
 		"pwd": func(args []string) {
@@ -60,13 +59,18 @@ func main() {
 			command := args[0]
 			if _, ok := builtins[command]; ok {
 				fmt.Printf("%s is a shell builtin\n", args[0])
-			} else {
-				fmt.Printf("%s: not found\n", command)
 			}
+
+			path, err := exec.LookPath(command)
+			if err == nil {
+				fmt.Printf("%s is %s\n", command, path)
+				return
+			}
+			fmt.Printf("%s: not found\n", command)
 
 		},
 		"clear": func(args []string) {
-			cmd :=exec.Command("clear")
+			cmd := exec.Command("clear")
 			cmd.Stdout = os.Stdout
 			cmd.Run()
 		},
@@ -104,8 +108,7 @@ func main() {
 				externalCmd.Stdin = os.Stdin
 				externalCmd.Stdout = os.Stdout
 				externalCmd.Stderr = os.Stderr
-				externalCmd.Run()
-				if err != nil {
+				if err := externalCmd.Run(); err != nil {
 					fmt.Println("Error executing", externalCmd.Args[0]+":", err)
 				}
 
