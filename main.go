@@ -91,7 +91,7 @@ func main() {
 			continue
 		}
 
-		parts := strings.Fields(prompt)
+		parts := parseInput(prompt)
 		commands := parts[0]
 		args := parts[1:]
 
@@ -116,4 +116,36 @@ func main() {
 
 		}
 	}
+}
+
+func parseInput(prompt string) []string {
+	isQuote := false
+	current := ""
+	commandFinal := []string{}
+
+	for i := 0; i < len(prompt); i++ {
+		ch := prompt[i]
+
+		if ch == '\'' {
+			isQuote = !isQuote
+			continue
+		}
+
+		if ch == ' ' && !isQuote {
+			if current != "" {
+				commandFinal = append(commandFinal, current)
+				current = ""
+			}
+			continue
+		}
+
+		current += string(ch)
+
+	}
+	if current != "" {
+		commandFinal = append(commandFinal, current)
+	}
+
+	return commandFinal
+
 }
