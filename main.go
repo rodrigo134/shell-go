@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -11,22 +12,22 @@ import (
 func main() {
 
 	reader := bufio.NewReader(os.Stdin)
-	builtins := map[string]func([]string){}
-	builtins = map[string]func([]string){
+	builtins := map[string]func(io.Writer, []string){}
+	builtins = map[string]func(io.Writer, []string){
 
-		"echo": func(args []string) {
-			fmt.Println(strings.Join(args, " "))
+		"echo": func(w io.Writer, args []string) {
+			fmt.Fprintln(w, strings.Join(args, " "))
 		},
-		"cd": func(args []string) {
+		"cd": func(w io.Writer, args []string) {
 			if len(args) == 0 {
-				fmt.Println("Usage: cd [Directory]")
+				fmt.Fprintln(w, "Usage: cd [Directory]")
 				return
 			}
 			path := args[0]
 			if path == "~" {
 				home, err := os.UserHomeDir()
 				if err != nil {
-					fmt.Println("error home directory")
+					fmt.Fprintln(w, "error home directory")
 					return
 				}
 				path = home
@@ -34,44 +35,45 @@ func main() {
 			}
 			err := os.Chdir(path)
 			if err != nil {
-				fmt.Printf("cd: %s: No such file or directory\n", args[0])
+				fmt.Fprintf(w, "cd: %s: No such file or directory\n", args[0])
 			}
 
 		},
 
-		"pwd": func(args []string) {
+		"pwd": func(w io.Writer, args []string) {
 			dir, err := os.Getwd()
 			if err != nil {
-				fmt.Println("Error getting current directory")
+				fmt.Fprintln(w, "Error getting current directory")
 				return
 			}
-			fmt.Println(dir)
+			fmt.Fprintln(w, dir)
 
 		},
-		"exit": func(args []string) {
+		"exit": func(w io.Writer, args []string) {
 			os.Exit(0)
 		},
-		"type": func(args []string) {
+		"type": func(w io.Writer, args []string) {
 
 			if len(args) == 0 {
 				return
 			}
 			command := args[0]
 			if _, ok := builtins[command]; ok {
-				fmt.Printf("%s is a shell builtin\n", args[0])
+				fmt.Fprintf(w, "%s is a shell builtin\n", args[0])
+				return
 			}
 
 			path, err := exec.LookPath(command)
 			if err == nil {
-				fmt.Printf("%s is %s\n", command, path)
+				fmt.Fprintf(w, "%s is %s\n", command, path)
 				return
 			}
-			fmt.Printf("%s: not found\n", command)
+			fmt.Fprintf(w, "%s: not found\n", command)
 
 		},
-		"clear": func(args []string) {
+		"clear": func(w io.Writer, args []string) {
 			cmd := exec.Command("clear")
-			cmd.Stdout = os.Stdout
+			cmd.Stdout = w
 			cmd.Run()
 		},
 	}
@@ -95,8 +97,30 @@ func main() {
 		commands := parts[0]
 		args := parts[1:]
 
+		// Check for redirection and extract command/args without redirect operators
+		command, outputFileName, hasRedirect := parseRedirection(parts)
+		if hasRedirect && len(command) > 0 {
+			commands = command[0]
+			args = command[1:]
+		}
+
+		var outputFile *os.File
+		if hasRedirect && outputFileName != "" {
+			var err error
+			outputFile, err = os.Create(outputFileName)
+			if err != nil {
+				fmt.Println("Error creating file:", err)
+				continue
+			}
+			// Close file immediately after command execution
+		}
+
 		if fn, ok := builtins[commands]; ok {
-			fn(args)
+			if outputFile != nil {
+				fn(outputFile, args)
+			} else {
+				fn(os.Stdout, args)
+			}
 		} else {
 			_, err := exec.LookPath(commands) //path = /usr/bin/ls
 			if err != nil {
@@ -106,7 +130,11 @@ func main() {
 			} else {
 				externalCmd := exec.Command(commands, args...) ///usr/bin/ls -la
 				externalCmd.Stdin = os.Stdin
-				externalCmd.Stdout = os.Stdout
+				if outputFile != nil {
+					externalCmd.Stdout = outputFile
+				} else {
+					externalCmd.Stdout = os.Stdout
+				}
 				externalCmd.Stderr = os.Stderr
 				if err := externalCmd.Run(); err != nil {
 					fmt.Println("Error executing", externalCmd.Args[0]+":", err)
@@ -114,6 +142,11 @@ func main() {
 
 			}
 
+		}
+
+		// Close output file if it was opened
+		if outputFile != nil {
+			outputFile.Close()
 		}
 	}
 }
@@ -185,4 +218,20 @@ func parseCommand(input string) []string {
 	}
 
 	return commandFinal
+}
+
+// parseRedirection checks for input and output redirection in the command.
+// [echo hello > output.txt] => command: "echo hello", outputFile: "output.txt", hasRedirect: true
+func parseRedirection(input []string) ([]string, string, bool) {
+	for i := 0; i < len(input); i++ {
+		token := input[i]
+		if token == ">" || token == "1>" {
+			if i+1 >= len(input) {
+				break
+			}
+			return input[:i], input[i+1], true
+		}
+	}
+
+	return input, "", false
 }
